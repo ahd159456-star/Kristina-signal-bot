@@ -6,7 +6,9 @@ TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 TG_FILE = f"https://api.telegram.org/file/bot{BOT_TOKEN}"
 
 app = Flask(__name__)
-
+@app.get("/")
+def home():
+    return "Bot is running ✅", 200
 def tg_send(chat_id: int, text: str):
     requests.post(f"{TG_API}/sendMessage", data={"chat_id": chat_id, "text": text}, timeout=15)
 

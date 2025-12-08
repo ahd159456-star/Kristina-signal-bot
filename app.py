@@ -29,10 +29,10 @@ ROI area
     roi = img_bgr[int(h*0.20):int(h*0.90), int(w*0.10):int(w*0.90)]
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
-‎    # gteen
+‎     gteen
     green = cv2.inRange(hsv, (35, 40, 40), (85, 255, 255))
 
-‎    # red (two parts)
+‎    red (two parts)
     red1 = cv2.inRange(hsv, (0, 50, 50), (10, 255, 255))
     red2 = cv2.inRange(hsv, (170, 50, 50), (180, 255, 255))
     red = cv2.bitwise_or(red1, red2)

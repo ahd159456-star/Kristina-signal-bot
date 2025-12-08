@@ -1,57 +1,38 @@
-import os
-import requests
 from flask import Flask, request
-
-BOT_TOKEN = (os.environ.get("BOT_TOKEN") or "").strip()
-TV_SECRET = (os.environ.get("TV_SECRET") or "").strip()
-CHAT_ID   = (os.environ.get("CHAT_ID") or "").strip()
-
-if not BOT_TOKEN:
-    raise RuntimeError("Missing BOT_TOKEN env var")
-if not TV_SECRET:
-    raise RuntimeError("Missing TV_SECRET env var")
-
-TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
+import requests
+import os
 
 app = Flask(__name__)
 
-def tg_send(text: str):
-    if not CHAT_ID:
-        print("CHAT_ID missing. Set it in Render Environment.")
-        return
-    requests.post(
-        f"{TG_API}/sendMessage",
-        json={"chat_id": CHAT_ID, "text": text},
-        timeout=15,
-    )
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+if not BOT_TOKEN:
+    raise RuntimeError("Missing BOT_TOKEN env var")
+
+def send_message(chat_id, text):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=15)
+
+@app.post(f"/{BOT_TOKEN}")
+def webhook():
+    update = request.get_json(force=True) or {}
+    msg = update.get("message") or update.get("edited_message")
+    if not msg:
+        return "ok", 200
+
+    chat_id = msg["chat"]["id"]
+    text = (msg.get("text") or "").strip().lower()
+
+    if text in ("/start", "/help"):
+        send_message(chat_id, "Send me a screenshot as PHOTO and I will reply ✅")
+        return "ok", 200
+
+    if "photo" in msg and msg["photo"]:
+        send_message(chat_id, "Photo received ✅ (analysis will be added next)")
+        return "ok", 200
+
+    send_message(chat_id, "Message received ✅")
+    return "ok", 200
 
 @app.get("/")
 def home():
-    return "TV -> Telegram bridge is running", 200
-
-@app.post(f"/tv/{TV_SECRET}")
-def tv_webhook():
-    if request.is_json:
-        data = request.get_json(silent=True) or {}
-        raw = str(data.get("signal") or data.get("action") or data.get("text") or "").strip()
-    else:
-        raw = (request.data or b"").decode("utf-8", errors="ignore").strip()
-
-    s = raw.upper()
-
-    if s in ("BUY", "CALL", "LONG", "UP"):
-        tg_send("BUY")
-        return "ok", 200
-    if s in ("SELL", "PUT", "SHORT", "DOWN"):
-        tg_send("SELL")
-        return "ok", 200
-
-    if "BUY" in s:
-        tg_send("BUY")
-        return "ok", 200
-    if "SELL" in s:
-        tg_send("SELL")
-        return "ok", 200
-
-    print("Unknown TradingView payload:", raw)
-    return "bad signal", 400
+    return "Bot is running!", 200

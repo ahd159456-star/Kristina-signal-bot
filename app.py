@@ -23,23 +23,31 @@ def download_photo(file_path: str) -> bytes:
     return r.content
 
 def signal_from_image(img_bgr):
-    h, w = img_bgr.shape[:2]
-    roi = img_bgr[int(h*0.15):int(h*0.9), int(w*0.78):w]
+        h, w = img_bgr.shape[:2]
+
+‎    # منطقة وسط الصورة (أوسع من قبل)
+    roi = img_bgr[int(h*0.20):int(h*0.90), int(w*0.10):int(w*0.90)]
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
-    green = cv2.inRange(hsv, (35, 60, 60), (90, 255, 255))
-    red1  = cv2.inRange(hsv, (0, 60, 60),  (12, 255, 255))
-    red2  = cv2.inRange(hsv, (165, 60, 60),(179, 255, 255))
+‎    # أخضر
+    green = cv2.inRange(hsv, (35, 40, 40), (85, 255, 255))
+
+‎    # أحمر (جزئين)
+    red1 = cv2.inRange(hsv, (0, 50, 50), (10, 255, 255))
+    red2 = cv2.inRange(hsv, (170, 50, 50), (180, 255, 255))
     red = cv2.bitwise_or(red1, red2)
 
     g = int(np.sum(green > 0))
     r = int(np.sum(red > 0))
 
-    if g > r * 1.25 and g > 1200:
+    print("GREEN:", g, "RED:", r)
+
+    if g > r * 1.2 and g > 300:
         return "📈 طلوع"
-    if r > g * 1.25 and r > 1200:
+    elif r > g * 1.2 and r > 300:
         return "📉 نزول"
-    return "⏳ انتظار"
+    else:
+        return "⏳ انتظار"
 
 @app.post(f"/{BOT_TOKEN}")
 def webhook():

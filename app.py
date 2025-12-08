@@ -1,76 +1,41 @@
-# -*- coding: utf-8 -*-
+from flask import Flask, request
 import os
 import requests
-from flask import Flask, request
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-if not BOT_TOKEN:
-    raise RuntimeError("Missing BOT_TOKEN env var")
-if not WEBHOOK_SECRET:
-    raise RuntimeError("Missing WEBHOOK_SECRET env var")
-
-TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
-
-def tg_send(chat_id: int, text: str):
-    try:
-        requests.post(
-            f"{TG_API}/sendMessage",
-            json={"chat_id": chat_id, "text": text},
-            timeout=15,
-        )
-    except Exception as e:
-        print("tg_send error:", e)
-
-@app.get("/")
+@app.route("/")
 def home():
-    return "OK", 200
+    return "OK"
 
-# Telegram webhook (to capture chat_id once)
-@app.post(f"/tg/{BOT_TOKEN}")
-def tg_webhook():
-    update = request.get_json(force=True) or {}
-    msg = update.get("message") or update.get("edited_message")
-    if not msg:
-        return "ok", 200
+@app.route(f"/tg/{WEBHOOK_SECRET}", methods=["POST"])
+def telegram_webhook():
+    data = request.get_json()
+    if not data:
+        return "no data"
 
-    chat_id = msg["chat"]["id"]
-    text = (msg.get("text") or "").strip()
+    # تأكيد استلام الرسالة
+    chat_id = data["message"]["chat"]["id"]
+    message = data["message"].get("text", "")
 
-    if text in ("/start", "/help"):
-        tg_send(chat_id, "ارسل /chatid عشان أعطيك Chat ID، وبعدين TradingView هو اللي ببعت إشارات.")
-        return "ok", 200
+    # أوامر بسيطة
+    if message == "/start":
+        send_message(chat_id, "✅ البوت جاهز لاستقبال إشارات TradingView.")
+    elif message == "/chatid":
+        send_message(chat_id, f"📍 Chat ID: {chat_id}")
+    else:
+        send_message(chat_id, f"تم استلام الرسالة: {message}")
 
-    if text == "/chatid":
-        tg_send(chat_id, f"CHAT_ID={chat_id}")
-        return "ok", 200
+    return "ok"
 
-    tg_send(chat_id, "جاهز. إشارات TradingView لازم تجي من Webhook.")
-    return "ok", 200
+def send_message(chat_id, text):
+    url = f"{TELEGRAM_API_URL}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    requests.post(url, json=payload)
 
-# TradingView webhook
-@app.post("/tv")
-def tv_webhook():
-    data = request.get_json(force=True) or {}
-
-    # security
-    if data.get("secret") != WEBHOOK_SECRET:
-        return {"ok": False, "error": "bad secret"}, 403
-
-    action = (data.get("action") or "").upper().strip()   # BUY / SELL / WAIT
-    symbol = (data.get("symbol") or "").upper().strip()
-    tf = (data.get("tf") or "").strip()
-    chat_id = data.get("chat_id")
-
-    if not chat_id:
-        return {"ok": False, "error": "missing chat_id"}, 400
-
-    if action not in ("BUY", "SELL", "WAIT"):
-        return {"ok": False, "error": "bad action"}, 400
-
-    msg = f"{action}\n{symbol}  TF:{tf}"
-    tg_send(int(chat_id), msg)
-    return {"ok": True}, 200
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)

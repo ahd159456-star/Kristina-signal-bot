@@ -25,7 +25,7 @@ def download_photo(file_path: str) -> bytes:
 def signal_from_image(img_bgr):
         h, w = img_bgr.shape[:2]
 
-‎    # ROI area
+ROI area
     roi = img_bgr[int(h*0.20):int(h*0.90), int(w*0.10):int(w*0.90)]
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 

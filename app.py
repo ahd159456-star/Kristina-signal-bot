@@ -89,7 +89,12 @@ def webhook():
 
         arr = np.frombuffer(content, np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    now_s, next_s, gC, rC, gP, rP = signal_from_image(img)
 
+tg_send(
+    chat_id,
+    f"NOW: {now_s}\nNEXT: {next_s}\nCUR(g={gC}, r={rC}) PREV(g={gP}, r={rP})"
+)
         if img is None:
             tg_send(chat_id, "Could not read image")
             return "ok"

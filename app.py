@@ -37,26 +37,42 @@ def download_photo(file_path: str) -> bytes:
 
 def signal_from_image(img_bgr):
     h, w = img_bgr.shape[:2]
-    roi = img_bgr[int(h * 0.20) : int(h * 0.90), int(w * 0.10) : int(w * 0.90)]
+
+    # Focus more on the right side where the latest candles are
+    roi = img_bgr[int(h * 0.20):int(h * 0.90), int(w * 0.55):int(w * 0.98)]
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
     green = cv2.inRange(hsv, (35, 40, 40), (85, 255, 255))
-
-    red1 = cv2.inRange(hsv, (0, 50, 50), (10, 255, 255))
-    red2 = cv2.inRange(hsv, (170, 50, 50), (180, 255, 255))
-    red = cv2.bitwise_or(red1, red2)
+    red1  = cv2.inRange(hsv, (0, 50, 50), (10, 255, 255))
+    red2  = cv2.inRange(hsv, (170, 50, 50), (180, 255, 255))
+    red   = cv2.bitwise_or(red1, red2)
 
     g = int(np.sum(green > 0))
     r = int(np.sum(red > 0))
-    print("GREEN", g, "RED", r)
 
+    # NOW signal
     if g > r * 1.2 and g > 300:
-        return "UP"
-    if r > g * 1.2 and r > 300:
-        return "DOWN"
-    return "WAIT"
+        now = "UP"
+    elif r > g * 1.2 and r > 300:
+        now = "DOWN"
+    else:
+        now = "WAIT"
 
+    # NEXT candle guess (simple heuristic)
+    nxt = "WAIT"
+    if now == "UP":
+        # if overextended green, expect a small pullback
+        if g > r * 3.0 and g > 2000:
+            nxt = "DOWN"
+        else:
+            nxt = "UP"
+    elif now == "DOWN":
+        if r > g * 3.0 and r > 2000:
+            nxt = "UP"
+        else:
+            nxt = "DOWN"
 
+    return now, nxt, g, r
 @app.post(f"/{BOT_TOKEN}")
 def webhook():
     update = request.get_json(force=True) or {}
